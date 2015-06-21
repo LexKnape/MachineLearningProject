@@ -1,0 +1,63 @@
+---
+title: "Applying Machine Learning to Predict Exercise Quality"
+author: "Andrew Messier"
+date: "Saturday, June 20, 2015"
+output: html_document
+---
+## Summary
+The purpose of this assignment is to use machine learning to build a model that predicts the manner in which an exercise was performed.  There is an appropriate way to perform the exercise, and 4 ways in which it is commonly done incorrectly, labeled in the supplied dataset as A, B, C, D and E.  The data is taken from the following source:
+
+http://groupware.les.inf.puc-rio.br/har
+
+## Loading the data
+First, I loaded the dataset into the R workspace
+
+```{r}
+library(caret)
+data_raw<-read.csv("pml-training.csv")
+```
+I first viewed this data in Excel to see the trends and noticed that many of the fields were left empty or filled with invalid values such as Div0 or NaN.  The following command selects the features that are valid numeric values of sensors.  The first index is the 'classe' variable which is the factor value we are trying to predict:
+```{r}
+training<-data_raw[,c("classe",
+                      "roll_belt","pitch_belt","yaw_belt","total_accel_belt",
+                      "gyros_belt_x","gyros_belt_y","gyros_belt_z",
+                      "accel_belt_x","accel_belt_y","accel_belt_z",
+                      "magnet_belt_x","magnet_belt_y","magnet_belt_z",
+                      "roll_arm","pitch_arm","yaw_arm","total_accel_arm",
+                      "gyros_arm_x","gyros_arm_y","gyros_arm_z",
+                      "accel_arm_x","accel_arm_y","accel_arm_z",
+                      "magnet_arm_x","magnet_arm_y","magnet_arm_z",
+                      "roll_dumbbell","pitch_dumbbell","yaw_dumbbell","total_accel_dumbbell",
+                      "gyros_dumbbell_x","gyros_dumbbell_y","gyros_dumbbell_z",
+                      "accel_dumbbell_x","accel_dumbbell_y","accel_dumbbell_z",
+                      "magnet_dumbbell_x","magnet_dumbbell_y","magnet_dumbbell_z",
+                      "roll_forearm","pitch_forearm","yaw_forearm","total_accel_forearm",
+                      "gyros_forearm_x","gyros_forearm_y","gyros_forearm_z",
+                      "accel_forearm_x","accel_forearm_y","accel_forearm_z",
+                      "magnet_forearm_x","magnet_forearm_y","magnet_forearm_z")]
+```
+## Exploratory data analysis
+Now that we have the data in a format that is useable, we can do some exploratory data analysis to see what types of trends can be seen.  This dataset has 52 features so it would be overwhelming to look at them all.  Instead, I used the values from the 'belt' sensors and am looking at the pairs of parameters with the markers color-coded by exercise type.
+```{r}
+pairs(subset(training,select=roll_belt:total_accel_belt),col=training$classe)
+```
+This shows that there are definitely separations in the data, but they don't seem to correspond to the classe factor that's being predicted.  It turns out this is related to the user who performed the exercises instead.  We have yet to see how the groups can be partitioned using machine learning.
+## Machine learning
+The first attempt to derive a model using a decision tree.  Note:  I am not evaluating the training scripts in this document because of the large amount of time they take to run.
+
+```{r}
+modFit_tree<-train(classe ~ .,method="rpart",data=training)
+print(modFit_tree$finalModel)
+table(predict(modFit_tree,training),training$classe)
+```
+This model is inadequate for a couple of reasons.  First of all, it never predicts 'D', and the other predictions are not sufficiently accurate for any prediction.  To get a perfect grade on the submission, we need to predict 20/20 sample points.  This means we should have a goal of better than 95% accuracy.
+
+Instead, we fit a random forest model:
+
+```{r}
+library(randomForest)
+modFit_forest<-randomForest(classe ~ .,data=training)
+print(modFit_forest)
+```
+
+This result shows an "out of bag" error of 0.28%. This is a measure of cross-validation and shows that the model should have excellent prediction performance outside of the training set.  Furthermore, this model successfully predicted the 20 test points supplied for this assignment.
